@@ -58,7 +58,6 @@ export default {
   },
   async mounted() {
     const tasksRef = collection(db, "tasks");
-    // Real-time sync (optional)
     onSnapshot(tasksRef, (snapshot) => {
       this.tasks = snapshot.docs.map((doc) => ({
         id: doc.id,
