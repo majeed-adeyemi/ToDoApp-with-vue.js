@@ -8,22 +8,25 @@
         placeholder="Enter a task"
       />
       <button @click="addOrUpdateTask" class="btn btn-primary">
-        {{ isEditing ? 'Update Task' : 'Add Task' }}
+        {{ isEditing ? "Update Task" : "Add Task" }}
       </button>
     </div>
 
     <ul class="list-group">
       <li
-        v-for="(task, index) in tasks"
-        :key="index"
+        v-for="task in tasks"
+        :key="task.id"
         class="list-group-item d-flex justify-content-between align-items-center"
       >
-        <span>{{ task }}</span>
+        <span>{{ task.text }}</span>
         <div>
-          <button @click="editTask(index)" class="btn btn-sm btn-warning me-2">
+          <button
+            @click="startEditing(task)"
+            class="btn btn-sm btn-warning me-2"
+          >
             Edit
           </button>
-          <button @click="deleteTask(index)" class="btn btn-sm btn-danger">
+          <button @click="deleteTask(task.id)" class="btn btn-sm btn-danger">
             Delete
           </button>
         </div>
@@ -33,42 +36,65 @@
 </template>
 
 <script>
+import { db } from "@/firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  doc,
+  onSnapshot,
+} from "firebase/firestore";
+
 export default {
   data() {
     return {
       tasks: [],
-      newTask: '',
+      newTask: "",
       isEditing: false,
-      editingIndex: null
-    }
+      editingId: null,
+    };
+  },
+  async mounted() {
+    const tasksRef = collection(db, "tasks");
+    // Real-time sync (optional)
+    onSnapshot(tasksRef, (snapshot) => {
+      this.tasks = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    });
   },
   methods: {
-    addOrUpdateTask() {
-      const trimmedTask = this.newTask.trim()
-      if (!trimmedTask) return
+    async addOrUpdateTask() {
+      const text = this.newTask.trim();
+      if (!text) return;
 
       if (this.isEditing) {
-        this.tasks[this.editingIndex] = trimmedTask
-        this.isEditing = false
-        this.editingIndex = null
+        const taskRef = doc(db, "tasks", this.editingId);
+        await updateDoc(taskRef, { text });
+        this.isEditing = false;
+        this.editingId = null;
       } else {
-        this.tasks.push(trimmedTask)
+        await addDoc(collection(db, "tasks"), { text });
       }
-      this.newTask = ''
+
+      this.newTask = "";
     },
-    editTask(index) {
-      this.newTask = this.tasks[index]
-      this.isEditing = true
-      this.editingIndex = index
+    startEditing(task) {
+      this.newTask = task.text;
+      this.isEditing = true;
+      this.editingId = task.id;
     },
-    deleteTask(index) {
-      this.tasks.splice(index, 1)
-      if (this.editingIndex === index) {
-        this.newTask = ''
-        this.isEditing = false
-        this.editingIndex = null
+    async deleteTask(id) {
+      await deleteDoc(doc(db, "tasks", id));
+      if (this.editingId === id) {
+        this.isEditing = false;
+        this.editingId = null;
+        this.newTask = "";
       }
-    }
-  }
-}
+    },
+  },
+};
 </script>
